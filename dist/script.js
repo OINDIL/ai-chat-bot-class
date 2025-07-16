@@ -97,4 +97,107 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
     }
+
+    const ui = { // ui related code belongs here
+        renderChatHistory: () => {
+            dom.chatHistory.innerHTML = "";
+
+            if (state.chats.length === 0) {
+                dom.chatHistory.innerHTML = "<p class='text-center text-gray-500 text-sm'>No Chats Found</p>"
+            }
+
+            state.chats.forEach((chat) => {
+                const chatDiv = document.createElement('div');
+
+                chatDiv.className = `p-3 rounded-lg cursor-pointer transition-colors text-sm truncate flex justify-between items-center ${chat.id === state.activeChatId ? 'bg-gray-200 dark:bg-gray-700 text-white' : 'hover:bg-gray-100 dark:bg-gray-700 text-white'}`
+
+                chatDiv.dataset.chatId = chat.id; // optional
+
+
+                // title span tag inside div chatDiv
+                const titleSpan = document.createElement('span');
+
+                titleSpan.innerHTML = `<i class="fas fa-comment mr-2 text-gray-400"></i> ${chat.title}`;
+
+                chatDiv.appendChild(titleSpan);
+
+
+                const controlsDiv = document.createElement('div');
+                const renameBtn = document.createElement('button');
+
+                renameBtn.innerHTML = '<i class="fas fa-edit text-gray-500 hover:text-gray-700"></i>';
+                renameBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    app.renameChat(chat.id);
+                })
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.innerHTML = '<i class="fas fa-trash text-gray-500 hover:text-red-500 ml-2"></i>';
+                deleteBtn.onclick = (e) => { e.stopPropagation(); app.deleteChat(chat.id); };
+
+
+                controlsDiv.appendChild(renameBtn);
+                controlsDiv.appendChild(deleteBtn);
+                chatDiv.appendChild(controlsDiv);
+
+                chatDiv.addEventListener("click", () => {
+                    app.setActiveChat(chat.id);
+                })
+
+
+                dom.chatHistory.appendChild(chatDiv);
+            })
+
+
+        },
+
+        renderMessages: () => {
+            dom.messagesContainer.innerHTML = "";
+
+            const activeChat = state.chats.find((chat) => chat.id === state.activeChatId);
+
+            if (!activeChat || activeChat.messages.length === 0) {
+                // Todo: WIP
+            }
+
+            activeChat.messages.forEach((message) => {
+
+                this.addMessageToUI(message.role, message.content);
+            })
+
+            // TODO: WIP
+        },
+
+        addMessageToUI: (role, content, isError = false) => {
+            const messageDiv = document.createElement('div');
+
+            messageDiv.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'}`;
+
+            const messageBubble = document.createElement('div');
+
+            messageBubble.className = `max-w-[80%] lg:max-w-[70%] px-4 py-3 rounded-lg ${role === 'user'
+                ? 'bg-blue-600 text-white'
+                : isError
+                    ? 'bg-red-100 text-red-800 border border-red-200'
+                    : 'bg-white text-gray-800 border border-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600'
+                }`;
+
+            if (role === 'assistant' && window.marked) {
+                messageBubble.innerHTML = DOMPurify.sanitize(marked.parse(content)); // NO XSS Attacks
+
+                messageBubble.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                })
+            } else {
+                messageBubble.textContent = "Can't display data!";
+            }
+
+            messageDiv.appendChild(messageBubble);
+            dom.messagesContainer.appendChild(messageDiv);
+        }
+
+    }
+
+
+
 })
