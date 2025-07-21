@@ -194,10 +194,186 @@ document.addEventListener("DOMContentLoaded", () => {
 
             messageDiv.appendChild(messageBubble);
             dom.messagesContainer.appendChild(messageDiv);
-        }
+        },
 
+        showWelcomeMessage: () => {
+            dom.messagesContainer.innerHTML = `
+                <div class="flex justify-center">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg px-6 py-4 max-w-2xl text-center dark:bg-gray-800 dark:border-gray-700">
+                        <i class="fas fa-robot text-blue-600 text-2xl mb-2"></i>
+                        <h2 class="text-lg font-semibold text-blue-800 mb-2 dark:text-blue-400">Welcome to AI Chat!</h2>
+                        <p class="text-blue-700 dark:text-gray-300">Start a new chat or select an existing one. Set your API key to begin.</p>
+                    </div>
+                </div>`;
+        },
+
+        updateCharCount: () => {
+            dom.charCount.textContent = dom.messageInput.value.length;
+        },
+
+        updateSendButton: () => {
+            const hasText = dom.messageInput.value.trim().length > 0; // only stores boolean "true" | "false";
+
+            const currectModelConfig = MODELS[state.model]
+            /* name: 'Gemini Pro',
+            provider: 'Google',
+            apiUrl: 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent',
+            apiKeyName: 'geminiApiKey',
+            getApiKeyUrl: "https://makersuite.google.com/app/apikey" */
+
+            const hasApiKey = state.apiKeys[currectModelConfig.apiKeyName] ? true : false;
+
+            if (!hasText || !hasApiKey || state.isLoading) {
+                dom.sendBtn.disabled = true;
+            }
+        },
+
+        scrollToBottom: () => {
+            dom.messagesContainer.scrollTop = dom.messagesContainer.scrollHeight;
+        },
+
+        applyTheme: () => {
+            if (state.theme === 'dark') {
+                document.documentElement.classList.add('dark');
+                if (dom.themeToggle) dom.themeToggle.innerHTML = '<i class="fas fa-sun"></i> Light Mode';
+            } else {
+                document.documentElement.classList.remove('dark');
+                if (dom.themeToggle) dom.themeToggle.innerHTML = '<i class="fas fa-moon"></i> Dark Mode';
+            }
+        },
+        createThemeToggle: () => {
+            const themeToggleContainer = document.createElement('div');
+
+            themeToggleContainer.className = 'p-4 border-t border-gray-200 dark:border-gray-700';
+            const toggleBtn = document.createElement("button");
+
+            toggleBtn.id = 'themeToggle';
+
+            toggleBtn.className = 'w-full text-gray-600 hover:text-gray-800 transition-colors text-sm flex items-center justify-center gap-2 dark:text-gray-300 dark:hover:text-white';
+
+            toggleBtn.addEventListener("click", () => {
+                app.toggleTheme;
+            })
+
+            themeToggleContainer.appendChild(toggleBtn);
+
+            dom.chatHistory.parentNode.appendChild(toggleBtn);
+
+            dom.themeToggle = toggleBtn;
+        },
+
+        showAPIkeyModal: () => {
+            const currentModelConfig = MODELS[state.model];
+            dom.apiKeyModelName.textContent = currentModelConfig.name;
+            dom.apiKeyInstructions.innerHTML = `Get your ${currentModelConfig.provider} API key from <a href="${currentModelConfig.getApiKeyUrl}" target="_blank" class="text-blue-600 hover:underline">${currentModelConfig.provider}'s website</a>.`;
+            dom.apiKeyModal.classList.remove('hidden');
+            dom.apiKeyModal.classList.add('flex');
+            dom.apiKeyInput.focus();
+            dom.apiKeyInput.value = state.apiKeys[currentModelConfig.apiKeyName] || '';
+        },
+
+        hideApiKeyModal: () => {
+            dom.apiKeyModal.classList.add('hidden');
+            dom.apiKeyModal.classList.remove('flex');
+        },
+
+        updateApiKeyStatus: () => {
+            const currentModelConfig = MODELS[state.model];
+            const apiKey = state.apiKeys[currentModelConfig.apiKeyName];
+            if (apiKey) {
+                dom.apiKeyStatus.textContent = 'API Key Set ✓';
+                dom.apiKeyStatus.classList.add('text-green-600');
+            } else {
+                dom.apiKeyStatus.textContent = 'Set API Key';
+                dom.apiKeyStatus.classList.remove('text-green-600');
+            }
+        },
+
+        showLoadingIndicator: () => {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'flex justify-start';
+            loadingDiv.id = 'loadingIndicator';
+
+            loadingDiv.innerHTML = `
+                <div class="bg-white border border-gray-200 px-4 py-3 rounded-lg dark:bg-gray-700 dark:border-gray-600">
+                    <div class="flex items-center space-x-2">
+                        <div class="flex space-x-1">
+                            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                            <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                        </div>
+                        <span class="text-gray-500 text-sm dark:text-gray-400">AI is thinking...</span>
+                    </div>
+                </div>
+            `;
+
+            dom.messagesContainer.appendChild(loadingDiv);
+            this.scrollToBottom();
+        },
+
+        hideLoadingIndicator: () => {
+            const indicator = document.getElementById('loadingIndicator');
+            if (indicator) indicator.remove();
+        },
+
+        updateModelSelector: () => {
+            dom.modelSelector.value = state.model;
+            const modelConfig = MODELS[state.model];
+
+            dom.modelDescription.textContent = `Powered by ${modelConfig.provider}`;
+        },
     }
 
+    const api = {
+        callApi: async (userMessage, chatHistory) => {
+            const modelConfig = MODELS[state.model];
 
+            const apiKey = state.apiKeys[modelConfig.apiKeyName];
 
+            if (!apiKey) {
+                throw new Error("Api Key is not set for the current model!");
+            }
+
+            switch (modelConfig.provider) {
+                case "Google":
+                    return this.callGemini(userMessage, chatHistory, apiKey);
+                case "OpenAI":
+                    return this.callOpenAI(userMessage, chatHistory, apiKey);
+                case "Anthropic":
+                    return this.callAnthropic(userMessage, chatHistory, apiKey);
+                default:
+                    throw new Error(`Unsupported model provider: ${modelConfig.provider}`)
+            }
+        },
+
+        callGemini: async (userMessage, chatHistory, apiKey) => {
+            const modelConfig = MODELS[state.model];
+            const geminiHistory = chatHistory.map((msg) => ({
+                role: msg.role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: msg.content }]
+            }))
+
+            const res = await fetch(`${modelConfig.apiUrl}?key=${apikey}`, {
+                method: "POST",
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [...geminiHistory, { role: 'user', parts: [{ text: userMessage }] }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        topK: 1,
+                        topP: 1,
+                        maxOutputTokens: 2048,
+                    }
+                })
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error.message || 'Failed to get response from Gemini!');
+            }
+
+            const data = await res.json();
+            return data.candidates[0].content.part[0].text;
+        }
+    }
 })
